@@ -1,37 +1,45 @@
-use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
-use std::time::Duration;
+mod display;
+mod events;
 
-const WIDTH: u32 = 720; 
-const HEIGHT: u32 = 480; 
+use display::Display;
+use sdl2::{
+    event::Event,
+    keyboard::Keycode,
+};
+use std::{env, thread, time::Duration};
+
+const SCALE_FACTOR: u32 = 20;
+const WIDTH: u32 = 1280; // 64 * SCALE_FACTOR
+const HEIGHT: u32 = 640; // 32 * SCALE_FACTOR
+
+struct Chip8 {}
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        eprintln!("Error: No input file");
+        std::process::exit(1);
+    }
+
     let sdl_context = sdl2::init().unwrap();
-    let video_subsystem = sdl_context.video().unwrap();
- 
-    let window = video_subsystem.window("CHIP8", WIDTH, HEIGHT)
-        .position_centered()
-        .build()
-        .unwrap();
- 
-    let mut canvas = window.into_canvas().build().unwrap();
- 
-    canvas.clear();
-    canvas.present();
-    let mut event_pump = sdl_context.event_pump().unwrap();
+    let mut window = Display::new(&sdl_context, WIDTH, HEIGHT);
+
+    let mut event_pump = events::EventDriver::new(&sdl_context);
 
     'running: loop {
-        canvas.clear();
-        for event in event_pump.poll_iter() {
+        window.canvas.clear();
+        for event in event_pump.events.poll_iter() {
             match event {
-                Event::Quit {..} |
-                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    break 'running
-                },
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => break 'running,
                 _ => {}
             }
         }
-        canvas.present();
-        ::std::thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
+        window.canvas.present();
+        thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
