@@ -63,6 +63,9 @@ impl Chip8 {
         let kk = opcode & 0x00FF;
         let nnn = opcode & 0x0FFF;
 
+        let vx = self.cpu.v[x as usize];
+        let vy = self.cpu.v[y as usize];
+
         match nibbles {
 
             // 0nnn - SYS addr
@@ -89,7 +92,29 @@ impl Chip8 {
             // 1nnn - JP addr
             (0x1, _, _, _) => {
                 self.cpu.pc = nnn as usize;
-                self.next_instruction();
+            }
+
+            
+            // 2nnn - CALL addr
+            (0x2, _, _, _) => {
+                self.cpu.sp += 1;
+                self.memory.stack[self.cpu.sp] = self.cpu.pc as u16;
+                self.cpu.pc = nnn as usize;
+            }
+
+            // 3xkk - SE Vx, byte
+            (0x3, _, _, _) => {
+                self.skip_next_instruction_if(u16::from(vx) == kk);
+            }
+
+            // 4xkk - SNE Vx, byte
+            (0x4, _, _, _) => {
+                self.skip_next_instruction_if(u16::from(vx) != kk);
+            }
+
+            // 5xkk - SE Vx, Vy
+            (0x5, _, _, _) => {
+                self.skip_next_instruction_if(vx == vy);
             }
 
             _ => {

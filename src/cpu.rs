@@ -2,7 +2,7 @@ pub struct Cpu {
     pub pc: usize,
     pub sp: usize,
     pub v: Vec<u8>,
-    pub i: u16,
+    pub i: usize,
     pub delay_timer: u8,
     pub sound_timer: u8,
 }
