@@ -34,7 +34,7 @@ impl Chip8 {
     }
 
     fn fetch_opcode(&self) -> u16 {
-        (self.memory.ram[self.cpu.pc] as u16) >> 8 | (self.memory.ram[self.cpu.pc + 1] as u16)
+        (self.memory.ram[self.cpu.pc] as u16) << 8 | (self.memory.ram[self.cpu.pc + 1] as u16)
     }
 
     fn execute_opcode(&mut self, opcode: u16) {
