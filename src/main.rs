@@ -37,6 +37,18 @@ impl Chip8 {
         (self.memory.ram[self.cpu.pc] as u16) << 8 | (self.memory.ram[self.cpu.pc + 1] as u16)
     }
 
+    fn next_instruction(&mut self) {
+        self.cpu.pc += 2;
+    }
+
+    fn skip_next_instruction_if(&mut self, condition: bool) {
+        if condition {
+            self.cpu.pc += 4;
+        } else {
+            self.cpu.pc += 2;
+        }
+    }
+
     fn execute_opcode(&mut self, opcode: u16) {
         let nibbles = (
             (opcode & 0xF000) >> 12,
@@ -52,6 +64,28 @@ impl Chip8 {
         let nnn = opcode & 0x0FFF;
 
         match nibbles {
+
+            // 0nnn - SYS addr
+            (0x0, _, _, _) => {
+                println!("OPCODE: 0nnn");
+                self.next_instruction();
+            }
+
+            // 00E0 - CLS
+            (0x0, 0x0, 0xE, 0x0) => {
+                println!("OPCODE: 00E0");
+                self.display.canvas.clear();
+                self.next_instruction();
+            }
+
+            // 00EE - RET
+            (0x0, 0x0, 0xE, 0xE) => {
+                println!("OPCODE: 00EE");
+                self.cpu.pc = self.memory.stack[self.cpu.sp] as usize;
+                self.cpu.sp -= 1;
+                self.next_instruction();
+            }
+
             _ => {
                 println!("Invalid opcode: {}", opcode);
             }
@@ -60,7 +94,8 @@ impl Chip8 {
 
     fn execute_cycle(&mut self) {
         let mut opcode = self.fetch_opcode();
-        println!("OPCODE: {:#06X}", opcode);
+        println!("CURRENT OPCODE: {:#06X}", opcode);
+        self.execute_opcode(opcode);
     }
 }
 
