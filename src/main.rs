@@ -10,7 +10,7 @@ use memory::Memory;
 
 use sdl2::{event::Event, keyboard::Keycode, Sdl};
 
-use std::{env, thread, time::Duration};
+use std::{env, io, thread, time::Duration};
 
 const SCALE_FACTOR: u32 = 20;
 const WIDTH: u32 = 1280; // 64 * SCALE_FACTOR
@@ -20,7 +20,7 @@ struct Chip8 {
     display: Display,
     cpu: Cpu,
     memory: Memory,
-    event_pump: EventDriver,
+    event: EventDriver,
 }
 
 impl Chip8 {
@@ -29,12 +29,12 @@ impl Chip8 {
             display: Display::new(sdl_context, WIDTH, HEIGHT),
             cpu: Cpu::new(),
             memory: Memory::new(),
-            event_pump: EventDriver::new(sdl_context),
+            event: EventDriver::new(sdl_context),
         }
     }
 }
 
-fn main() {
+fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
 
     if args.len() < 2 {
@@ -45,9 +45,12 @@ fn main() {
     let sdl_context = sdl2::init().unwrap();
     let mut chip8 = Chip8::new(&sdl_context);
 
+    let rom_path = &args[1];
+
     'running: loop {
         chip8.display.canvas.clear();
-        for event in chip8.event_pump.events.poll_iter() {
+        let events = chip8.event.events.poll_iter();
+        for event in events {
             match event {
                 Event::Quit { .. }
                 | Event::KeyDown {
@@ -59,4 +62,5 @@ fn main() {
         }
         chip8.display.canvas.present();
     }
+    Ok(())
 }
