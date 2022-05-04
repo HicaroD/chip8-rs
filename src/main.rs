@@ -57,9 +57,9 @@ impl Chip8 {
             (opcode & 0x000F) as u8,
         );
 
-        let x = nibbles.1; 
-        let y = nibbles.2;
-        let n = nibbles.3;
+        let x = nibbles.1 as usize; 
+        let y = nibbles.2 as usize;
+        let n = nibbles.3 as usize;
         let kk = (opcode & 0x00FF) as u8;
         let nnn = opcode & 0x0FFF;
 
@@ -125,6 +125,30 @@ impl Chip8 {
             // 7xkk - ADD Vx, byte
             (0x7, _, _, _) => {
                 self.cpu.v[x as usize] += kk;
+                self.next_instruction();
+            }
+
+            // 8xy0 - LD Vx, Vy
+            (0x8, _, _, 0) => {
+                self.cpu.v[x] = self.cpu.v[y];
+                self.next_instruction();
+            }
+
+            // 8xy1 - OR Vx, Vy
+            (0x8, _, _, 1) => {
+                self.cpu.v[x] |= self.cpu.v[y];
+                self.next_instruction();
+            }
+
+            // 8xy2 - AND Vx, Vy
+            (0x8, _, _, 2) => {
+                self.cpu.v[x] &= self.cpu.v[y];
+                self.next_instruction();
+            }
+
+            // 8xy3 - XOR Vx, Vy
+            (0x8, _, _, 3) => {
+                self.cpu.v[x] ^= self.cpu.v[y];
                 self.next_instruction();
             }
 
