@@ -1,18 +1,41 @@
 mod display;
 mod events;
+mod cpu;
+mod memory;
 
-use display::Display;
 use sdl2::{
+    Sdl,
     event::Event,
     keyboard::Keycode,
 };
 use std::{env, thread, time::Duration};
 
+use display::Display;
+use cpu::Cpu;
+use memory::Memory;
+use events::EventDriver;
+
 const SCALE_FACTOR: u32 = 20;
 const WIDTH: u32 = 1280; // 64 * SCALE_FACTOR
 const HEIGHT: u32 = 640; // 32 * SCALE_FACTOR
 
-struct Chip8 {}
+struct Chip8 {
+    display: Display,
+    cpu: Cpu,
+    memory: Memory,
+    event_pump: EventDriver,
+}
+
+impl Chip8 {
+    fn new(sdl_context: &Sdl) -> Self {
+        Self {
+            display: Display::new(sdl_context, WIDTH, HEIGHT),
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+            event_pump: EventDriver::new(sdl_context),
+        }
+    }
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -23,13 +46,11 @@ fn main() {
     }
 
     let sdl_context = sdl2::init().unwrap();
-    let mut window = Display::new(&sdl_context, WIDTH, HEIGHT);
-
-    let mut event_pump = events::EventDriver::new(&sdl_context);
+    let mut chip8 = Chip8::new(&sdl_context);
 
     'running: loop {
-        window.canvas.clear();
-        for event in event_pump.events.poll_iter() {
+        chip8.display.canvas.clear();
+        for event in chip8.event_pump.events.poll_iter() {
             match event {
                 Event::Quit { .. }
                 | Event::KeyDown {
@@ -39,7 +60,7 @@ fn main() {
                 _ => {}
             }
         }
-        window.canvas.present();
+        chip8.display.canvas.present();
         thread::sleep(Duration::new(0, 1_000_000_000u32 / 60));
     }
 }
