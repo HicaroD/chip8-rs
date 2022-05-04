@@ -1,19 +1,16 @@
+mod cpu;
 mod display;
 mod events;
-mod cpu;
 mod memory;
 
-use sdl2::{
-    Sdl,
-    event::Event,
-    keyboard::Keycode,
-};
-use std::{env, thread, time::Duration};
-
-use display::Display;
 use cpu::Cpu;
-use memory::Memory;
+use display::Display;
 use events::EventDriver;
+use memory::Memory;
+
+use sdl2::{event::Event, keyboard::Keycode, Sdl};
+
+use std::{env, thread, time::Duration};
 
 const SCALE_FACTOR: u32 = 20;
 const WIDTH: u32 = 1280; // 64 * SCALE_FACTOR
