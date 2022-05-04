@@ -23,8 +23,8 @@ const STARTING_ADDRESS_ROM: usize = 0x200;
 const STARTING_ADDRESS_FONT: usize = 0x50;
 
 pub struct Memory {
-    ram: Vec<u8>,
-    stack: Vec<u16>,
+    pub ram: Vec<u8>,
+    pub stack: Vec<u16>,
 }
 
 impl Memory {

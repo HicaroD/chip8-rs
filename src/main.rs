@@ -32,6 +32,15 @@ impl Chip8 {
             event: EventDriver::new(sdl_context),
         }
     }
+
+    fn fetch_opcode(&self) -> u16 {
+        (self.memory.ram[self.cpu.pc] as u16) >> 8 | (self.memory.ram[self.cpu.pc + 1] as u16)
+    }
+
+    fn execute_cycle(&mut self) {
+        let mut opcode = self.fetch_opcode();
+        println!("OPCODE: {}", opcode);
+    }
 }
 
 fn main() -> io::Result<()> {
@@ -46,6 +55,8 @@ fn main() -> io::Result<()> {
     let mut chip8 = Chip8::new(&sdl_context);
 
     let rom_path = &args[1];
+    chip8.memory.load_rom(rom_path);
+    chip8.memory.load_fontset();
 
     'running: loop {
         chip8.display.canvas.clear();
@@ -60,6 +71,7 @@ fn main() -> io::Result<()> {
                 _ => {}
             }
         }
+        chip8.execute_cycle();
         chip8.display.canvas.present();
     }
     Ok(())
