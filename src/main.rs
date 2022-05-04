@@ -51,16 +51,16 @@ impl Chip8 {
 
     fn execute_opcode(&mut self, opcode: u16) {
         let nibbles = (
-            (opcode & 0xF000) >> 12,
-            (opcode & 0x0F00) >> 8,
-            (opcode & 0x00F0) >> 4,
-            (opcode & 0x000F),
+            (opcode & 0xF000) >> 12 as u8,
+            (opcode & 0x0F00) >> 8 as u8,
+            (opcode & 0x00F0) >> 4 as u8,
+            (opcode & 0x000F) as u8,
         );
 
         let x = nibbles.1; 
         let y = nibbles.2;
         let n = nibbles.3;
-        let kk = opcode & 0x00FF;
+        let kk = (opcode & 0x00FF) as u8;
         let nnn = opcode & 0x0FFF;
 
         let vx = self.cpu.v[x as usize];
@@ -93,7 +93,6 @@ impl Chip8 {
             (0x1, _, _, _) => {
                 self.cpu.pc = nnn as usize;
             }
-
             
             // 2nnn - CALL addr
             (0x2, _, _, _) => {
@@ -104,17 +103,29 @@ impl Chip8 {
 
             // 3xkk - SE Vx, byte
             (0x3, _, _, _) => {
-                self.skip_next_instruction_if(u16::from(vx) == kk);
+                self.skip_next_instruction_if(vx == kk);
             }
 
             // 4xkk - SNE Vx, byte
             (0x4, _, _, _) => {
-                self.skip_next_instruction_if(u16::from(vx) != kk);
+                self.skip_next_instruction_if(vx != kk);
             }
 
             // 5xkk - SE Vx, Vy
             (0x5, _, _, _) => {
                 self.skip_next_instruction_if(vx == vy);
+            }
+
+            // 6xkk - LD Vx, byte
+            (0x6, _, _, _) => {
+                self.cpu.v[x as usize] = kk;
+                self.next_instruction();
+            }
+
+            // 7xkk - ADD Vx, byte
+            (0x7, _, _, _) => {
+                self.cpu.v[x as usize] += kk;
+                self.next_instruction();
             }
 
             _ => {
