@@ -86,6 +86,12 @@ impl Chip8 {
                 self.next_instruction();
             }
 
+            // 1nnn - JP addr
+            (0x1, _, _, _) => {
+                self.cpu.pc = nnn as usize;
+                self.next_instruction();
+            }
+
             _ => {
                 println!("Invalid opcode: {}", opcode);
             }
