@@ -37,9 +37,30 @@ impl Chip8 {
         (self.memory.ram[self.cpu.pc] as u16) >> 8 | (self.memory.ram[self.cpu.pc + 1] as u16)
     }
 
+    fn execute_opcode(&mut self, opcode: u16) {
+        let nibbles = (
+            (opcode & 0xF000) >> 12,
+            (opcode & 0x0F00) >> 8,
+            (opcode & 0x00F0) >> 4,
+            (opcode & 0x000F),
+        );
+
+        let x = nibbles.1; 
+        let y = nibbles.2;
+        let n = nibbles.3;
+        let kk = opcode & 0x00FF;
+        let nnn = opcode & 0x0FFF;
+
+        match nibbles {
+            _ => {
+                println!("Invalid opcode: {}", opcode);
+            }
+        }
+    }
+
     fn execute_cycle(&mut self) {
         let mut opcode = self.fetch_opcode();
-        println!("OPCODE: {}", opcode);
+        println!("OPCODE: {:#06X}", opcode);
     }
 }
 
