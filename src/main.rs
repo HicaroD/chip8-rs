@@ -182,10 +182,24 @@ impl Chip8 {
             }
 
             // 8xy6 - SHR Vx {, Vy}
-            (0x8, _, _, 0x6) {
+            (0x8, _, _, 0x6) => {
                 println!("OPCODE: 8xy6");
                 self.cpu.v[0xF] = self.cpu.v[x] & 1;
                 self.cpu.v[x] >>= 1;
+                self.next_instruction();
+            }
+
+            // 8xy7 - SUBN Vx, Vy
+            (0x8, _, _, 0x7) => {
+                self.cpu.v[x] = if vy > vx { 1 } else { 0 };
+                self.cpu.v[x] = self.cpu.v[y] - self.cpu.v[x];
+                self.next_instruction();
+            }
+
+            // 8xyE - SHL Vx {, Vy}
+            (0x8, _, _, 0xE) => {
+                self.cpu.v[0xF] = self.cpu.v[x] & 0b10000000;
+                self.cpu.v[x] <<= 1;
                 self.next_instruction();
             }
 
