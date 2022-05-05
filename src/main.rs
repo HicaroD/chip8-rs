@@ -9,6 +9,7 @@ use events::EventDriver;
 use memory::Memory;
 
 use sdl2::{event::Event, keyboard::Keycode, Sdl};
+use rand::{thread_gen, Rng};
 
 use std::{env, io, thread, time::Duration};
 
@@ -57,7 +58,7 @@ impl Chip8 {
             (opcode & 0x000F) as u8,
         );
 
-        let x = nibbles.1 as usize; 
+        let x = nibbles.1 as usize;
         let y = nibbles.2 as usize;
         let n = nibbles.3 as usize;
         let kk = (opcode & 0x00FF) as u8;
@@ -67,7 +68,6 @@ impl Chip8 {
         let vy = self.cpu.v[y as usize];
 
         match nibbles {
-
             // 0nnn - SYS addr
             (0x0, _, _, _) => {
                 println!("OPCODE: 0nnn");
@@ -94,7 +94,7 @@ impl Chip8 {
                 println!("OPCODE: 1nnn");
                 self.cpu.pc = nnn as usize;
             }
-            
+
             // 2nnn - CALL addr
             (0x2, _, _, _) => {
                 println!("OPCODE: 2nnn");
@@ -191,6 +191,7 @@ impl Chip8 {
 
             // 8xy7 - SUBN Vx, Vy
             (0x8, _, _, 0x7) => {
+                println!("OPCODE: 8xy7");
                 self.cpu.v[x] = if vy > vx { 1 } else { 0 };
                 self.cpu.v[x] = self.cpu.v[y] - self.cpu.v[x];
                 self.next_instruction();
@@ -198,10 +199,72 @@ impl Chip8 {
 
             // 8xyE - SHL Vx {, Vy}
             (0x8, _, _, 0xE) => {
+                println!("OPCODE: 8xyE");
                 self.cpu.v[0xF] = self.cpu.v[x] & 0b10000000;
                 self.cpu.v[x] <<= 1;
                 self.next_instruction();
             }
+
+            // 9xy0 - SNE Vx, Vy
+            (0x9, _, _, 0) => {
+                println!("OPCODE: 9xy0");
+                self.skip_next_instruction_if(vx != vy);
+            }
+
+            // Annn - LD I, addr
+            (0xA, _, _, _) => {
+                println!("OPCODE: Annn");
+                self.cpu.i = nnn as usize;
+                self.next_instruction();
+            }
+
+            // Bnnn - JP V0, addr
+            (0xB, _, _, _) => {
+                println!("OPCODE: Bnnn");
+                self.cpu.pc = (nnn + self.cpu.v[0] as u16) as usize;
+            }
+
+            // Cxkk - RND Vx, byte
+            (0xC, _, _, _) => {
+                println!("OPCODE: Cxkk");
+                let mut rng = thread_gen();
+                let random_byte = rng.gen_range(..255);
+                self.cpu.v[x] = kk & random_byte;
+                self.next_instruction();
+            }
+
+            // Dxyn - DRW Vx, Vy, nibble
+            (0xD, _, _, _) => {}
+
+            // Ex9E - SKP Vx
+            (0xE, _, 0x9, 0xE) => {}
+
+            // ExA1 - SKNP Vx
+            (0xE, _, 0xA, 0x1) => {}
+
+            // Fx0A - LD Vx, K
+            (0xF, _, 0, 0xA) => {}
+
+            // Fx15 - LD DT, Vx
+            (0xF, _, 0x1, 0x5) => {}
+
+            // Fx18 - LD ST, Vx
+            (0xF, _, 0x1, 0x8) => {}
+
+            // Fx1E - ADD I, Vx
+            (0xF, _, 0x1, 0xE) => {}
+
+            // Fx29 - LD F, Vx
+            (0xF, _, 0x2, 0x9) => {}
+
+            // Fx33 - LD B, Vx
+            (0xF, _, 0x3, 0x3) => {}
+
+            // Fx55 - LD [I], Vx
+            (0xF, _, 0x5, 0x5) => {}
+
+            // Fx65 - LD Vx, [I]
+            (0xF, _, 0x6, 0x5) => {}
 
             _ => {
                 println!("Invalid opcode: {}", opcode);
