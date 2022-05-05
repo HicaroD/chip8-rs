@@ -8,7 +8,7 @@ use display::Display;
 use events::EventDriver;
 use memory::Memory;
 
-use sdl2::{event::Event, keyboard::Keycode, Sdl, rect, pixels};
+use sdl2::{Sdl, rect, pixels};
 use rand::{thread_rng, Rng};
 
 use std::{env, io};
@@ -67,9 +67,9 @@ impl Chip8 {
 
     fn execute_opcode(&mut self, opcode: u16) {
         let nibbles = (
-            (opcode & 0xF000) >> 12 as u8,
-            (opcode & 0x0F00) >> 8 as u8,
-            (opcode & 0x00F0) >> 4 as u8,
+            (opcode & 0xF000) >> 12_u8,
+            (opcode & 0x0F00) >> 8_u8,
+            (opcode & 0x00F0) >> 4_u8,
             (opcode & 0x000F) as u8,
         );
 
@@ -183,14 +183,14 @@ impl Chip8 {
                 println!("OPCODE: 8xy4");
                 let result = vx + vy;
                 self.cpu.v[x] = result as u8;
-                self.cpu.v[0xF] = if result > 0xFF { 1 } else { 0 };
+                self.cpu.v[0x0F] = if result > 0xFF { 1 } else { 0 };
                 self.next_instruction();
             }
 
             // 8xy5 - SUB Vx, Vy
             (0x8, _, _, 0x5) => {
                 println!("OPCODE: 8xy5");
-                self.cpu.v[0xF] = if vx > vy { 1 } else { 0 };
+                self.cpu.v[0x0F] = if vx > vy { 1 } else { 0 };
                 self.cpu.v[x] -= self.cpu.v[y];
                 self.next_instruction();
             }
@@ -198,7 +198,7 @@ impl Chip8 {
             // 8xy6 - SHR Vx {, Vy}
             (0x8, _, _, 0x6) => {
                 println!("OPCODE: 8xy6");
-                self.cpu.v[0xF] = self.cpu.v[x] & 1;
+                self.cpu.v[0x0F] = self.cpu.v[x] & 1;
                 self.cpu.v[x] >>= 1;
                 self.next_instruction();
             }
@@ -214,7 +214,7 @@ impl Chip8 {
             // 8xyE - SHL Vx {, Vy}
             (0x8, _, _, 0xE) => {
                 println!("OPCODE: 8xyE");
-                self.cpu.v[0xF] = self.cpu.v[x] & 0b10000000;
+                self.cpu.v[0x0F] = self.cpu.v[x] & 0b10000000;
                 self.cpu.v[x] <<= 1;
                 self.next_instruction();
             }
@@ -321,7 +321,7 @@ impl Chip8 {
             // Fx55 - LD [I], Vx
             (0xF, _, 0x5, 0x5) => {
                 println!("OPCODE: Fx55");
-                for i in (0..=x){
+                for i in 0..=x {
                     self.memory.ram[i+self.cpu.i] = self.cpu.v[i];
                 }
                 self.next_instruction();
@@ -330,7 +330,7 @@ impl Chip8 {
             // Fx65 - LD Vx, [I]
             (0xF, _, 0x6, 0x5) => {
                 println!("OPCODE: Fx65");
-                for i in (0..=x){
+                for i in 0..=x {
                     self.cpu.v[i] = self.memory.ram[i+self.cpu.i];
                 }
                 self.next_instruction();
@@ -343,7 +343,7 @@ impl Chip8 {
     }
 
     fn execute_cycle(&mut self) {
-        let mut opcode = self.fetch_opcode();
+        let opcode = self.fetch_opcode();
         println!("CURRENT OPCODE: {:#06X}", opcode);
         self.execute_opcode(opcode);
     }
@@ -364,21 +364,10 @@ fn main() -> io::Result<()> {
     chip8.memory.load_rom(rom_path);
     chip8.memory.load_fontset();
 
-    'running: loop {
+    loop {
         chip8.display.canvas.clear();
-        let events = chip8.event.events.poll_iter();
-        for event in events {
-            match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
-                _ => {}
-            }
-        }
+        chip8.event.pool().unwrap();
         chip8.execute_cycle();
         chip8.display.canvas.present();
     }
-    Ok(())
 }
