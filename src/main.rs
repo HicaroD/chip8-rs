@@ -9,7 +9,7 @@ use events::EventDriver;
 use memory::Memory;
 
 use sdl2::{event::Event, keyboard::Keycode, Sdl};
-use rand::{thread_gen, Rng};
+use rand::{thread_rng, Rng};
 
 use std::{env, io, thread, time::Duration};
 
@@ -124,14 +124,14 @@ impl Chip8 {
             // 6xkk - LD Vx, byte
             (0x6, _, _, _) => {
                 println!("OPCODE: 5xkk");
-                self.cpu.v[x as usize] = kk;
+                self.cpu.v[x] = kk;
                 self.next_instruction();
             }
 
             // 7xkk - ADD Vx, byte
             (0x7, _, _, _) => {
                 println!("OPCODE: 7xkk");
-                self.cpu.v[x as usize] += kk;
+                self.cpu.v[x] += kk;
                 self.next_instruction();
             }
 
@@ -175,9 +175,8 @@ impl Chip8 {
             // 8xy5 - SUB Vx, Vy
             (0x8, _, _, 0x5) => {
                 println!("OPCODE: 8xy5");
-                let result = vx - vy;
-                self.cpu.v[x] = result;
                 self.cpu.v[0xF] = if vx > vy { 1 } else { 0 };
+                self.cpu.v[x] -= self.cpu.v[y];
                 self.next_instruction();
             }
 
@@ -227,8 +226,8 @@ impl Chip8 {
             // Cxkk - RND Vx, byte
             (0xC, _, _, _) => {
                 println!("OPCODE: Cxkk");
-                let mut rng = thread_gen();
-                let random_byte = rng.gen_range(..255);
+                let mut rng = thread_rng();
+                let random_byte = rng.gen_range(0..255);
                 self.cpu.v[x] = kk & random_byte;
                 self.next_instruction();
             }
