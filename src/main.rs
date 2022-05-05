@@ -8,10 +8,10 @@ use display::Display;
 use events::EventDriver;
 use memory::Memory;
 
-use sdl2::{event::Event, keyboard::Keycode, Sdl};
+use sdl2::{event::Event, keyboard::Keycode, Sdl, rect, pixels};
 use rand::{thread_rng, Rng};
 
-use std::{env, io, thread, time::Duration};
+use std::{env, io};
 
 const SCALE_FACTOR: u32 = 20;
 const WIDTH: u32 = 1280; // 64 * SCALE_FACTOR
@@ -48,6 +48,21 @@ impl Chip8 {
         } else {
             self.cpu.pc += 2;
         }
+    }
+
+    fn draw(&mut self, x: i32, y: i32, color: u8) {
+        let get_color = |color: u8| -> pixels::Color {
+            if color == 1 {
+                pixels::Color::WHITE
+            } else { 
+                pixels::Color::BLACK
+            }
+        };
+
+        self.display.canvas.set_draw_color(get_color(color));
+        let point = rect::Rect::new(x, y, SCALE_FACTOR, SCALE_FACTOR);
+        let _ = self.display.canvas.fill_rect(point);
+        self.display.canvas.present();
     }
 
     fn execute_opcode(&mut self, opcode: u16) {
@@ -233,37 +248,93 @@ impl Chip8 {
             }
 
             // Dxyn - DRW Vx, Vy, nibble
-            (0xD, _, _, _) => {}
+            (0xD, _, _, _) => {
+                println!("OPCODE: Dxyn");
+                // TODO: Too much type casting
+                for byte in 0..n {
+                    let y_axis = (self.cpu.v[y] as usize + byte) % (HEIGHT as usize);
+                    for bit in 0..8 {
+                        let x_axis = (self.cpu.v[x] as usize + bit) % (WIDTH as usize);
+                        let color = (self.memory.ram[self.cpu.i + byte] >> (7 - bit)) & 1;
+                        self.draw(x_axis as i32, y_axis as i32, color);
+                    }
+                }
+                self.next_instruction();
+            }
 
+            // TODO: Aprender sobre key press em SDL2
             // Ex9E - SKP Vx
             (0xE, _, 0x9, 0xE) => {}
 
+            // TODO: Aprender sobre key press em SDL2
             // ExA1 - SKNP Vx
             (0xE, _, 0xA, 0x1) => {}
 
+            // Fx07 - LD Vx, DT
+            (0xF, _, 0, 0x7) => {
+                println!("OPCODE: Fx07");
+                self.cpu.v[x] = self.cpu.delay_timer;
+                self.next_instruction();
+            }
+
+            // TODO: Aprender sobre key press em SDL2
             // Fx0A - LD Vx, K
             (0xF, _, 0, 0xA) => {}
 
             // Fx15 - LD DT, Vx
-            (0xF, _, 0x1, 0x5) => {}
+            (0xF, _, 0x1, 0x5) => {
+                println!("OPCODE: Fx15");
+                self.cpu.delay_timer = self.cpu.v[x];
+                self.next_instruction();
+            }
 
             // Fx18 - LD ST, Vx
-            (0xF, _, 0x1, 0x8) => {}
+            (0xF, _, 0x1, 0x8) => {
+                println!("OPCODE: Fx18");
+                self.cpu.sound_timer = self.cpu.v[x];
+                self.next_instruction();
+            }
 
             // Fx1E - ADD I, Vx
-            (0xF, _, 0x1, 0xE) => {}
+            (0xF, _, 0x1, 0xE) => {
+                println!("OPCODE: Fx1E");
+                self.cpu.i += self.cpu.v[x] as usize;
+                self.next_instruction();
+            }
 
             // Fx29 - LD F, Vx
-            (0xF, _, 0x2, 0x9) => {}
+            (0xF, _, 0x2, 0x9) => {
+                println!("OPCODE: Fx29");
+                self.cpu.i = self.cpu.v[x] as usize;
+                self.next_instruction();
+            }
 
             // Fx33 - LD B, Vx
-            (0xF, _, 0x3, 0x3) => {}
+            (0xF, _, 0x3, 0x3) => {
+                println!("OPCODE: Fx33");
+                self.memory.ram[self.cpu.i] = self.cpu.v[x] / 100;
+                self.memory.ram[self.cpu.i+1] = (self.cpu.v[x] % 100) / 10;
+                self.memory.ram[self.cpu.i+2] = (self.cpu.v[x] % 10) / 10;
+                self.next_instruction();
+            }
 
             // Fx55 - LD [I], Vx
-            (0xF, _, 0x5, 0x5) => {}
+            (0xF, _, 0x5, 0x5) => {
+                println!("OPCODE: Fx55");
+                for i in (0..=x){
+                    self.memory.ram[i+self.cpu.i] = self.cpu.v[i];
+                }
+                self.next_instruction();
+            }
 
             // Fx65 - LD Vx, [I]
-            (0xF, _, 0x6, 0x5) => {}
+            (0xF, _, 0x6, 0x5) => {
+                println!("OPCODE: Fx65");
+                for i in (0..=x){
+                    self.cpu.v[i] = self.memory.ram[i+self.cpu.i];
+                }
+                self.next_instruction();
+            }
 
             _ => {
                 println!("Invalid opcode: {}", opcode);
