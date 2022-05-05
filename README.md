@@ -6,6 +6,9 @@
 By the way, that's the fifth time that I am trying to build a CHIP8 interpreter. For some reason, I just don't
 want to give up.
 
+I rewrote this project in Rust because Go sucks, sorry
+gophers.
+
 ## Installation
 Soon.
 
