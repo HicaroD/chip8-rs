@@ -182,8 +182,8 @@ impl Chip8 {
             (0x8, _, _, 0x4) => {
                 println!("OPCODE: 8xy4");
                 let result = vx + vy;
-                self.cpu.v[x] = result as u8;
                 self.cpu.v[0x0F] = if result > 0xFF { 1 } else { 0 };
+                self.cpu.v[x] = result as u8;
                 self.next_instruction();
             }
 
@@ -361,8 +361,14 @@ fn main() -> io::Result<()> {
     let mut chip8 = Chip8::new(&sdl_context);
 
     let rom_path = &args[1];
-    chip8.memory.load_rom(rom_path);
-    chip8.memory.load_fontset();
+
+    if let Err(err) = chip8.memory.load_rom(rom_path) {
+        eprintln!("Unable to load ROM into memory");
+    }
+
+    if let Err(err) = chip8.memory.load_fontset() {
+        eprintln!("Load fontset into memory");
+    }
 
     loop {
         chip8.display.canvas.clear();
