@@ -17,6 +17,12 @@ const SCALE_FACTOR: u32 = 20;
 const WIDTH: u32 = 1280; // 64 * SCALE_FACTOR
 const HEIGHT: u32 = 640; // 32 * SCALE_FACTOR
 
+enum ProgramCounter {
+    Next,
+    Skip,
+    Jump(u16),
+}
+
 struct Chip8 {
     display: Display,
     cpu: Cpu,
@@ -86,12 +92,12 @@ impl Chip8 {
         let vx = self.cpu.v[x as usize];
         let vy = self.cpu.v[y as usize];
 
-        match nibbles {
+        let program_counter = match nibbles {
             // 00E0 - CLS
             (0x0, 0x0, 0xE, 0x0) => {
                 println!("OPCODE: 00E0");
                 self.display.canvas.clear();
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 00EE - RET
@@ -99,13 +105,14 @@ impl Chip8 {
                 println!("OPCODE: 00EE");
                 self.cpu.pc = self.memory.stack[self.cpu.sp as usize];
                 self.cpu.sp -= 1;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 1nnn - JP addr
             (0x1, _, _, _) => {
                 println!("OPCODE: 1nnn");
-                self.cpu.pc = nnn;
+                // self.cpu.pc = nnn;
+                ProgramCounter::Jump(nnn as u16)
             }
 
             // 2nnn - CALL addr
@@ -113,32 +120,32 @@ impl Chip8 {
                 println!("OPCODE: 2nnn");
                 self.cpu.sp += 1;
                 self.memory.stack[self.cpu.sp as usize] = self.cpu.pc as u16;
-                self.cpu.pc = nnn;
+                ProgramCounter::Jump(nnn)
             }
 
             // 3xkk - SE Vx, byte
             (0x3, _, _, _) => {
                 println!("OPCODE: 3xkk");
-                self.skip_next_instruction_if(vx == kk);
+                if vx == kk { ProgramCounter::Skip } else { ProgramCounter::Next }
             }
 
             // 4xkk - SNE Vx, byte
             (0x4, _, _, _) => {
                 println!("OPCODE: 4xkk");
-                self.skip_next_instruction_if(vx != kk);
+                if vx != kk { ProgramCounter::Skip } else { ProgramCounter::Next }
             }
 
             // 5xkk - SE Vx, Vy
             (0x5, _, _, _) => {
                 println!("OPCODE: 5xkk");
-                self.skip_next_instruction_if(vx == vy);
+                if vx == vy { ProgramCounter::Skip } else { ProgramCounter::Next }
             }
 
             // 6xkk - LD Vx, byte
             (0x6, _, _, _) => {
                 println!("OPCODE: 5xkk");
                 self.cpu.v[x] = kk;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 7xkk - ADD Vx, byte
@@ -146,35 +153,35 @@ impl Chip8 {
                 println!("OPCODE: 7xkk");
                 let result = vx as u16 + kk as u16;
                 self.cpu.v[x] = result as u8;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xy0 - LD Vx, Vy
             (0x8, _, _, 0) => {
                 println!("OPCODE: 8xy0");
                 self.cpu.v[x] = self.cpu.v[y];
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xy1 - OR Vx, Vy
             (0x8, _, _, 0x1) => {
                 println!("OPCODE: 8xy1");
                 self.cpu.v[x] |= self.cpu.v[y];
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xy2 - AND Vx, Vy
             (0x8, _, _, 0x2) => {
                 println!("OPCODE: 8xy2");
                 self.cpu.v[x] &= self.cpu.v[y];
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xy3 - XOR Vx, Vy
             (0x8, _, _, 0x3) => {
                 println!("OPCODE: 8xy3");
                 self.cpu.v[x] ^= self.cpu.v[y];
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xy4 - ADD Vx, Vy
@@ -183,7 +190,7 @@ impl Chip8 {
                 let result = vx + vy;
                 self.cpu.v[0x0F] = if result > 0xFF { 1 } else { 0 };
                 self.cpu.v[x] = result as u8;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xy5 - SUB Vx, Vy
@@ -191,7 +198,7 @@ impl Chip8 {
                 println!("OPCODE: 8xy5");
                 self.cpu.v[0x0F] = if vx > vy { 1 } else { 0 };
                 self.cpu.v[x] -= self.cpu.v[y];
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xy6 - SHR Vx {, Vy}
@@ -199,7 +206,7 @@ impl Chip8 {
                 println!("OPCODE: 8xy6");
                 self.cpu.v[0x0F] = self.cpu.v[x] & 1;
                 self.cpu.v[x] >>= 1;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xy7 - SUBN Vx, Vy
@@ -207,7 +214,7 @@ impl Chip8 {
                 println!("OPCODE: 8xy7");
                 self.cpu.v[x] = if vy > vx { 1 } else { 0 };
                 self.cpu.v[x] = self.cpu.v[y] - self.cpu.v[x];
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 8xyE - SHL Vx {, Vy}
@@ -215,26 +222,26 @@ impl Chip8 {
                 println!("OPCODE: 8xyE");
                 self.cpu.v[0x0F] = self.cpu.v[x] & 0b10000000;
                 self.cpu.v[x] <<= 1;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // 9xy0 - SNE Vx, Vy
             (0x9, _, _, 0) => {
                 println!("OPCODE: 9xy0");
-                self.skip_next_instruction_if(vx != vy);
+                if vx != vy { ProgramCounter::Skip } else { ProgramCounter::Next }
             }
 
             // Annn - LD I, addr
             (0xA, _, _, _) => {
                 println!("OPCODE: Annn");
                 self.cpu.i = nnn;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Bnnn - JP V0, addr
             (0xB, _, _, _) => {
                 println!("OPCODE: Bnnn");
-                self.cpu.pc = nnn + self.cpu.v[0] as u16;
+                ProgramCounter::Jump(nnn + self.cpu.v[0] as u16)
             }
 
             // Cxkk - RND Vx, byte
@@ -243,7 +250,7 @@ impl Chip8 {
                 let mut rng = thread_rng();
                 let random_byte = rng.gen_range(0..255);
                 self.cpu.v[x] = kk & random_byte;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Dxyn - DRW Vx, Vy, nibble
@@ -258,49 +265,49 @@ impl Chip8 {
                         self.draw(x_axis as i32, y_axis as i32, color);
                     }
                 }
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // TODO: Aprender sobre key press em SDL2
             // Ex9E - SKP Vx
             (0xE, _, 0x9, 0xE) => {
                 println!("OPCODE: Ex9E");
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // TODO: Aprender sobre key press em SDL2
             // ExA1 - SKNP Vx
             (0xE, _, 0xA, 0x1) => {
                 println!("OPCODE: ExA1");
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Fx07 - LD Vx, DT
             (0xF, _, 0, 0x7) => {
                 println!("OPCODE: Fx07");
                 self.cpu.v[x] = self.cpu.delay_timer;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // TODO: Aprender sobre key press em SDL2
             // Fx0A - LD Vx, K
             (0xF, _, 0, 0xA) => {
                 println!("OPCODE: Fx0A");
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Fx15 - LD DT, Vx
             (0xF, _, 0x1, 0x5) => {
                 println!("OPCODE: Fx15");
                 self.cpu.delay_timer = self.cpu.v[x];
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Fx18 - LD ST, Vx
             (0xF, _, 0x1, 0x8) => {
                 println!("OPCODE: Fx18");
                 self.cpu.sound_timer = self.cpu.v[x];
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Fx1E - ADD I, Vx
@@ -308,7 +315,7 @@ impl Chip8 {
                 println!("OPCODE: Fx1E");
                 let val: u16 = self.cpu.v[x].into();
                 self.cpu.i += val;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Fx29 - LD F, Vx
@@ -316,7 +323,7 @@ impl Chip8 {
                 println!("OPCODE: Fx29");
                 let val: u16 = self.cpu.v[x].into();
                 self.cpu.i = val;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Fx33 - LD B, Vx
@@ -325,7 +332,7 @@ impl Chip8 {
                 self.memory.ram[self.cpu.i as usize] = self.cpu.v[x] / 100;
                 self.memory.ram[self.cpu.i as usize + 1] = (self.cpu.v[x] % 100) / 10;
                 self.memory.ram[self.cpu.i as usize + 2] = (self.cpu.v[x] % 10) / 10;
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Fx55 - LD [I], Vx
@@ -334,7 +341,7 @@ impl Chip8 {
                 for i in 0..=x {
                     self.memory.ram[i + self.cpu.i as usize] = self.cpu.v[i];
                 }
-                self.next_instruction();
+                ProgramCounter::Next
             }
 
             // Fx65 - LD Vx, [I]
@@ -343,22 +350,23 @@ impl Chip8 {
                 for i in 0..=x {
                     self.cpu.v[i] = self.memory.ram[i + self.cpu.i as usize];
                 }
-                self.next_instruction();
+                ProgramCounter::Next
             }
-
-            // Super Chip8 instruction
-
-            // Fx85 - LD Vx, R
-            (0xF, _, 0x8, 0x5) => {}
 
             _ => {
                 println!("Invalid opcode: {:#06X}", opcode);
                 std::process::exit(1);
             }
+        };
+
+        match program_counter {
+            ProgramCounter::Next => self.cpu.pc += 2,
+            ProgramCounter::Skip => self.cpu.pc += 4,
+            ProgramCounter::Jump(instruction) => self.cpu.pc = instruction,
         }
     }
 
-    fn execute_cycle(&mut self) {
+    fn tick(&mut self) {
         let opcode = self.fetch_opcode();
         println!("CURRENT OPCODE: {:#06X}", opcode);
         self.execute_opcode(opcode);
@@ -389,7 +397,7 @@ fn main() -> io::Result<()> {
     loop {
         chip8.display.canvas.clear();
         chip8.event.pool().unwrap();
-        chip8.execute_cycle();
+        chip8.tick();
         chip8.display.canvas.present();
     }
 }
