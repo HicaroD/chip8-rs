@@ -14,8 +14,10 @@ use sdl2::{pixels, rect, Sdl};
 use std::{env, io};
 
 const SCALE_FACTOR: u32 = 20;
-const WIDTH: u32 = 1280; // 64 * SCALE_FACTOR
-const HEIGHT: u32 = 640; // 32 * SCALE_FACTOR
+const WIDTH: u32 = 64;
+const HEIGHT: u32 = 32;
+const DISPLAY_WIDTH: u32 = 64 * SCALE_FACTOR;
+const DISPLAY_HEIGHT: u32 = 32 * SCALE_FACTOR;
 
 enum ProgramCounter {
     Next,
@@ -25,18 +27,24 @@ enum ProgramCounter {
 
 struct Chip8 {
     display: Display,
+    screen: [[u8; WIDTH as usize]; HEIGHT as usize],
+    event: EventDriver,
     cpu: Cpu,
     memory: Memory,
-    event: EventDriver,
+    keyboard: [bool; 16],
+    screen_changed: bool,
 }
 
 impl Chip8 {
     fn new(sdl_context: &Sdl) -> Self {
         Self {
-            display: Display::new(sdl_context, WIDTH, HEIGHT),
+            display: Display::new(sdl_context, DISPLAY_WIDTH, DISPLAY_HEIGHT),
+            screen: [[0; WIDTH as usize]; HEIGHT as usize],
             cpu: Cpu::new(),
             memory: Memory::new(),
             event: EventDriver::new(sdl_context),
+            keyboard: [false; 16],
+            screen_changed: false,
         }
     }
 
@@ -57,7 +65,7 @@ impl Chip8 {
         }
     }
 
-    fn draw(&mut self, x: i32, y: i32, color: u8) {
+    fn draw(&mut self) {
         let get_color = |color: u8| -> pixels::Color {
             if color == 1 {
                 pixels::Color::WHITE
@@ -66,13 +74,21 @@ impl Chip8 {
             }
         };
 
-        self.display.canvas.set_draw_color(get_color(color));
-        let point = rect::Rect::new(x, y, SCALE_FACTOR, SCALE_FACTOR);
-        let _ = self
-            .display
-            .canvas
-            .draw_rect(point)
-            .expect("This should work!");
+        for (y, row) in self.screen.iter().enumerate() {
+            for (x, color) in row.iter().enumerate() {
+                self.display.canvas.set_draw_color(get_color(*color));
+                let y_axis = (y * SCALE_FACTOR as usize).try_into().unwrap();
+                let x_axis = (x * SCALE_FACTOR as usize).try_into().unwrap();
+
+                let point = rect::Rect::new(x_axis, y_axis, SCALE_FACTOR, SCALE_FACTOR);
+                let _ = self
+                    .display
+                    .canvas
+                    .draw_rect(point)
+                    .expect("This should work!");
+            }
+        }
+        self.display.canvas.present();
     }
 
     fn execute_opcode(&mut self, opcode: u16) {
@@ -96,7 +112,12 @@ impl Chip8 {
             // 00E0 - CLS
             (0x0, 0x0, 0xE, 0x0) => {
                 println!("OPCODE: 00E0");
-                self.display.canvas.clear();
+                for y in 0..HEIGHT {
+                    for x in 0..WIDTH {
+                        self.screen[y as usize][x as usize] = 0;
+                    }
+                }
+                self.screen_changed = true;
                 ProgramCounter::Next
             }
 
@@ -111,8 +132,7 @@ impl Chip8 {
             // 1nnn - JP addr
             (0x1, _, _, _) => {
                 println!("OPCODE: 1nnn");
-                // self.cpu.pc = nnn;
-                ProgramCounter::Jump(nnn as u16)
+                ProgramCounter::Jump(nnn)
             }
 
             // 2nnn - CALL addr
@@ -126,19 +146,31 @@ impl Chip8 {
             // 3xkk - SE Vx, byte
             (0x3, _, _, _) => {
                 println!("OPCODE: 3xkk");
-                if vx == kk { ProgramCounter::Skip } else { ProgramCounter::Next }
+                if vx == kk {
+                    ProgramCounter::Skip
+                } else {
+                    ProgramCounter::Next
+                }
             }
 
             // 4xkk - SNE Vx, byte
             (0x4, _, _, _) => {
                 println!("OPCODE: 4xkk");
-                if vx != kk { ProgramCounter::Skip } else { ProgramCounter::Next }
+                if vx != kk {
+                    ProgramCounter::Skip
+                } else {
+                    ProgramCounter::Next
+                }
             }
 
             // 5xkk - SE Vx, Vy
             (0x5, _, _, _) => {
                 println!("OPCODE: 5xkk");
-                if vx == vy { ProgramCounter::Skip } else { ProgramCounter::Next }
+                if vx == vy {
+                    ProgramCounter::Skip
+                } else {
+                    ProgramCounter::Next
+                }
             }
 
             // 6xkk - LD Vx, byte
@@ -187,7 +219,7 @@ impl Chip8 {
             // 8xy4 - ADD Vx, Vy
             (0x8, _, _, 0x4) => {
                 println!("OPCODE: 8xy4");
-                let result = vx + vy;
+                let result = vx as u16 + vy as u16;
                 self.cpu.v[0x0F] = if result > 0xFF { 1 } else { 0 };
                 self.cpu.v[x] = result as u8;
                 ProgramCounter::Next
@@ -228,7 +260,11 @@ impl Chip8 {
             // 9xy0 - SNE Vx, Vy
             (0x9, _, _, 0) => {
                 println!("OPCODE: 9xy0");
-                if vx != vy { ProgramCounter::Skip } else { ProgramCounter::Next }
+                if vx != vy {
+                    ProgramCounter::Skip
+                } else {
+                    ProgramCounter::Next
+                }
             }
 
             // Annn - LD I, addr
@@ -257,29 +293,44 @@ impl Chip8 {
             (0xD, _, _, _) => {
                 println!("OPCODE: Dxyn");
                 for byte in 0..=n {
+                    let y_axis = (self.cpu.v[y] as usize + byte) % HEIGHT as usize;
                     for bit in 0..8 {
-                        let y_axis = (self.cpu.v[y] as usize + byte) % (HEIGHT as usize);
-                        let x_axis = (self.cpu.v[x] as usize + bit) % (WIDTH as usize);
+                        let x_axis = (self.cpu.v[x] as usize + bit) % WIDTH as usize;
                         let color = (self.memory.ram[self.cpu.i as usize + byte] >> (7 - bit)) & 1;
-
-                        self.draw(x_axis as i32, y_axis as i32, color);
+                        self.cpu.v[0xf] |= color & self.screen[y_axis][x_axis];
+                        self.screen[y_axis][x_axis] ^= color;
                     }
                 }
+                self.screen_changed = true;
                 ProgramCounter::Next
             }
 
-            // TODO: Aprender sobre key press em SDL2
             // Ex9E - SKP Vx
             (0xE, _, 0x9, 0xE) => {
                 println!("OPCODE: Ex9E");
-                ProgramCounter::Next
+                let key = self.event.get_key(vx);
+                let mut pc = ProgramCounter::Next;
+
+                if let Some(selected_key) = key {
+                    if self.event.events.keyboard_state().is_scancode_pressed(selected_key) {
+                        pc = ProgramCounter::Skip;
+                    }
+                }
+                pc
             }
 
-            // TODO: Aprender sobre key press em SDL2
             // ExA1 - SKNP Vx
             (0xE, _, 0xA, 0x1) => {
                 println!("OPCODE: ExA1");
-                ProgramCounter::Next
+                let key = self.event.get_key(vx);
+                let mut pc = ProgramCounter::Next;
+
+                if let Some(selected_key) = key {
+                    if !self.event.events.keyboard_state().is_scancode_pressed(selected_key) {
+                        pc = ProgramCounter::Skip
+                    } 
+                }
+                pc
             }
 
             // Fx07 - LD Vx, DT
@@ -289,10 +340,21 @@ impl Chip8 {
                 ProgramCounter::Next
             }
 
-            // TODO: Aprender sobre key press em SDL2
             // Fx0A - LD Vx, K
             (0xF, _, 0, 0xA) => {
                 println!("OPCODE: Fx0A");
+
+                'keypress_waiting: loop {
+                    println!("WAITING FOR KEY PRESS");
+                    self.keyboard = self.event.pool().unwrap();
+
+                    for (i, key) in self.keyboard.iter().enumerate() {
+                        if *key {
+                            self.cpu.v[x] = i as u8;
+                            break 'keypress_waiting;
+                        }
+                    }
+                }
                 ProgramCounter::Next
             }
 
@@ -354,7 +416,7 @@ impl Chip8 {
             }
 
             _ => {
-                println!("Invalid opcode: {:#06X}", opcode);
+                println!("(ERROR) Invalid opcode: {:#06X}", opcode);
                 std::process::exit(1);
             }
         };
@@ -362,14 +424,20 @@ impl Chip8 {
         match program_counter {
             ProgramCounter::Next => self.cpu.pc += 2,
             ProgramCounter::Skip => self.cpu.pc += 4,
-            ProgramCounter::Jump(instruction) => self.cpu.pc = instruction,
+            ProgramCounter::Jump(instruction) => self.cpu.pc = instruction as u16,
         }
     }
 
     fn tick(&mut self) {
+        self.screen_changed = false;
+
         let opcode = self.fetch_opcode();
         println!("CURRENT OPCODE: {:#06X}", opcode);
         self.execute_opcode(opcode);
+
+        if self.screen_changed {
+            self.draw();
+        } 
     }
 }
 
@@ -398,6 +466,5 @@ fn main() -> io::Result<()> {
         chip8.display.canvas.clear();
         chip8.event.pool().unwrap();
         chip8.tick();
-        chip8.display.canvas.present();
     }
 }
