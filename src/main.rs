@@ -346,12 +346,10 @@ impl Chip8 {
                 self.next_instruction();
             }
 
-            // Super Chip8 instruction 
+            // Super Chip8 instruction
 
-            // Fx85 - LD Vx, R 
-            (0xF, _, 0x8, 0x5) => {
-
-            },
+            // Fx85 - LD Vx, R
+            (0xF, _, 0x8, 0x5) => {}
 
             _ => {
                 println!("Invalid opcode: {:#06X}", opcode);
