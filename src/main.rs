@@ -53,18 +53,6 @@ impl Chip8 {
             | (self.memory.ram[self.cpu.pc as usize + 1] as u16)
     }
 
-    fn next_instruction(&mut self) {
-        self.cpu.pc += 2;
-    }
-
-    fn skip_next_instruction_if(&mut self, condition: bool) {
-        if condition {
-            self.cpu.pc += 4;
-        } else {
-            self.cpu.pc += 2;
-        }
-    }
-
     fn draw(&mut self) {
         let get_color = |color: u8| -> pixels::Color {
             if color == 1 {
@@ -455,11 +443,13 @@ fn main() -> io::Result<()> {
     let rom_path = &args[1];
 
     if let Err(err) = chip8.memory.load_fontset() {
-        eprintln!("Load fontset into memory");
+        eprintln!("{}", err);
+        std::process::exit(1);
     }
 
     if let Err(err) = chip8.memory.load_rom(rom_path) {
-        eprintln!("Unable to load ROM into memory");
+        eprintln!("{}", err); 
+        std::process::exit(1);
     }
 
     loop {

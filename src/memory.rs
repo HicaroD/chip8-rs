@@ -38,7 +38,7 @@ impl Memory {
     pub fn load_rom(&mut self, rom_path: &str) -> io::Result<()> {
         let mut rom = File::open(rom_path)?;
         let mut buffer = Vec::new();
-        rom.read_to_end(&mut buffer);
+        rom.read_to_end(&mut buffer)?;
         self.ram[STARTING_ADDRESS_ROM..(buffer.len() + STARTING_ADDRESS_ROM)]
             .clone_from_slice(&buffer[..]);
         Ok(())
