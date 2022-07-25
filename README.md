@@ -1,19 +1,15 @@
 # CHIP8
-**WORK IN PROGRESS**
 
 :joystick: A CHIP8 interpreter.
 
-By the way, that's the fifth time that I am trying to build a CHIP8 interpreter. For some reason, I just don't
-want to give up.
-
-I rewrote this project in Rust because Go sucks, sorry
-gophers.
-
-## Installation
-Soon.
-
 ## ROMs
 About the ROMs, I just got a pack of games for Chip8 [here](https://www.zophar.net/pdroms/chip8/chip-8-games-pack.html)
+
+## Bugs
+Some games just doesn't work and I still need to figure out the problem, it is just a simple CHIP8 interpreter,
+not a Super Chip8 interpreter, therefore some opcodes weren't implemented, that causes bugs on some games. 
+
+Snake game works fine and it is enough for me :smile:.
 
 ## License
 This project is licensed under the [MIT](LICENSE) license.
