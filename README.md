@@ -2,7 +2,7 @@
 
 :joystick: A CHIP8 interpreter.
 
-![gif](./ezgif.com-gif-maker.gif)
+![gif](./gameplay.gif)
 
 ## ROMs
 About the ROMs, I just got a pack of games for Chip8 [here](https://www.zophar.net/pdroms/chip8/chip-8-games-pack.html)
