@@ -84,7 +84,7 @@ impl Chip8 {
                 let _ = self
                     .display
                     .canvas
-                    .draw_rect(point)
+                    .fill_rect(point)
                     .expect("This should work!");
             }
         }
@@ -229,7 +229,7 @@ impl Chip8 {
             (0x8, _, _, 0x5) => {
                 println!("OPCODE: 8xy5");
                 self.cpu.v[0x0F] = if vx > vy { 1 } else { 0 };
-                self.cpu.v[x] -= self.cpu.v[y];
+                self.cpu.v[x] = self.cpu.v[x].wrapping_sub(self.cpu.v[y]);
                 ProgramCounter::Next
             }
 
