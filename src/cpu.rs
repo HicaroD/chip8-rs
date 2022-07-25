@@ -1,8 +1,8 @@
 pub struct Cpu {
-    pub pc: usize,
-    pub sp: usize,
+    pub pc: u16,
+    pub sp: u8,
     pub v: Vec<u8>,
-    pub i: usize,
+    pub i: u16,
     pub delay_timer: u8,
     pub sound_timer: u8,
 }
