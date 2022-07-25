@@ -1,4 +1,4 @@
-use sdl2::{EventPump, Sdl, event::Event};
+use sdl2::{event::Event, EventPump, Sdl};
 
 pub struct EventDriver {
     pub events: EventPump,
@@ -13,7 +13,7 @@ impl EventDriver {
     pub fn pool(&mut self) -> Result<(), ()> {
         let events = self.events.poll_iter();
         for event in events {
-            if let Event::Quit {..} = event {
+            if let Event::Quit { .. } = event {
                 return Err(());
             }
         }
