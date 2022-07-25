@@ -8,8 +8,8 @@ use display::Display;
 use events::EventDriver;
 use memory::Memory;
 
-use sdl2::{Sdl, rect, pixels};
 use rand::{thread_rng, Rng};
+use sdl2::{pixels, rect, Sdl};
 
 use std::{env, io};
 
@@ -35,7 +35,8 @@ impl Chip8 {
     }
 
     fn fetch_opcode(&self) -> u16 {
-        (self.memory.ram[self.cpu.pc] as u16) << 8 | (self.memory.ram[self.cpu.pc + 1] as u16)
+        (self.memory.ram[self.cpu.pc as usize] as u16) << 8
+            | (self.memory.ram[self.cpu.pc as usize + 1] as u16)
     }
 
     fn next_instruction(&mut self) {
@@ -54,15 +55,18 @@ impl Chip8 {
         let get_color = |color: u8| -> pixels::Color {
             if color == 1 {
                 pixels::Color::WHITE
-            } else { 
+            } else {
                 pixels::Color::BLACK
             }
         };
 
         self.display.canvas.set_draw_color(get_color(color));
         let point = rect::Rect::new(x, y, SCALE_FACTOR, SCALE_FACTOR);
-        let _ = self.display.canvas.fill_rect(point);
-        self.display.canvas.present();
+        let _ = self
+            .display
+            .canvas
+            .draw_rect(point)
+            .expect("This should work!");
     }
 
     fn execute_opcode(&mut self, opcode: u16) {
@@ -83,12 +87,6 @@ impl Chip8 {
         let vy = self.cpu.v[y as usize];
 
         match nibbles {
-            // 0nnn - SYS addr
-            (0x0, _, _, _) => {
-                println!("OPCODE: 0nnn");
-                self.next_instruction();
-            }
-
             // 00E0 - CLS
             (0x0, 0x0, 0xE, 0x0) => {
                 println!("OPCODE: 00E0");
@@ -99,7 +97,7 @@ impl Chip8 {
             // 00EE - RET
             (0x0, 0x0, 0xE, 0xE) => {
                 println!("OPCODE: 00EE");
-                self.cpu.pc = self.memory.stack[self.cpu.sp] as usize;
+                self.cpu.pc = self.memory.stack[self.cpu.sp as usize];
                 self.cpu.sp -= 1;
                 self.next_instruction();
             }
@@ -107,15 +105,15 @@ impl Chip8 {
             // 1nnn - JP addr
             (0x1, _, _, _) => {
                 println!("OPCODE: 1nnn");
-                self.cpu.pc = nnn as usize;
+                self.cpu.pc = nnn;
             }
 
             // 2nnn - CALL addr
             (0x2, _, _, _) => {
                 println!("OPCODE: 2nnn");
                 self.cpu.sp += 1;
-                self.memory.stack[self.cpu.sp] = self.cpu.pc as u16;
-                self.cpu.pc = nnn as usize;
+                self.memory.stack[self.cpu.sp as usize] = self.cpu.pc as u16;
+                self.cpu.pc = nnn;
             }
 
             // 3xkk - SE Vx, byte
@@ -146,7 +144,8 @@ impl Chip8 {
             // 7xkk - ADD Vx, byte
             (0x7, _, _, _) => {
                 println!("OPCODE: 7xkk");
-                self.cpu.v[x] += kk;
+                let result = vx as u16 + kk as u16;
+                self.cpu.v[x] = result as u8;
                 self.next_instruction();
             }
 
@@ -228,14 +227,14 @@ impl Chip8 {
             // Annn - LD I, addr
             (0xA, _, _, _) => {
                 println!("OPCODE: Annn");
-                self.cpu.i = nnn as usize;
+                self.cpu.i = nnn;
                 self.next_instruction();
             }
 
             // Bnnn - JP V0, addr
             (0xB, _, _, _) => {
                 println!("OPCODE: Bnnn");
-                self.cpu.pc = (nnn + self.cpu.v[0] as u16) as usize;
+                self.cpu.pc = nnn + self.cpu.v[0] as u16;
             }
 
             // Cxkk - RND Vx, byte
@@ -250,12 +249,12 @@ impl Chip8 {
             // Dxyn - DRW Vx, Vy, nibble
             (0xD, _, _, _) => {
                 println!("OPCODE: Dxyn");
-                // TODO: Too much type casting
-                for byte in 0..n {
-                    let y_axis = (self.cpu.v[y] as usize + byte) % (HEIGHT as usize);
+                for byte in 0..=n {
                     for bit in 0..8 {
+                        let y_axis = (self.cpu.v[y] as usize + byte) % (HEIGHT as usize);
                         let x_axis = (self.cpu.v[x] as usize + bit) % (WIDTH as usize);
-                        let color = (self.memory.ram[self.cpu.i + byte] >> (7 - bit)) & 1;
+                        let color = (self.memory.ram[self.cpu.i as usize + byte] >> (7 - bit)) & 1;
+
                         self.draw(x_axis as i32, y_axis as i32, color);
                     }
                 }
@@ -264,11 +263,17 @@ impl Chip8 {
 
             // TODO: Aprender sobre key press em SDL2
             // Ex9E - SKP Vx
-            (0xE, _, 0x9, 0xE) => {}
+            (0xE, _, 0x9, 0xE) => {
+                println!("OPCODE: Ex9E");
+                self.next_instruction();
+            }
 
             // TODO: Aprender sobre key press em SDL2
             // ExA1 - SKNP Vx
-            (0xE, _, 0xA, 0x1) => {}
+            (0xE, _, 0xA, 0x1) => {
+                println!("OPCODE: ExA1");
+                self.next_instruction();
+            }
 
             // Fx07 - LD Vx, DT
             (0xF, _, 0, 0x7) => {
@@ -279,7 +284,10 @@ impl Chip8 {
 
             // TODO: Aprender sobre key press em SDL2
             // Fx0A - LD Vx, K
-            (0xF, _, 0, 0xA) => {}
+            (0xF, _, 0, 0xA) => {
+                println!("OPCODE: Fx0A");
+                self.next_instruction();
+            }
 
             // Fx15 - LD DT, Vx
             (0xF, _, 0x1, 0x5) => {
@@ -298,23 +306,25 @@ impl Chip8 {
             // Fx1E - ADD I, Vx
             (0xF, _, 0x1, 0xE) => {
                 println!("OPCODE: Fx1E");
-                self.cpu.i += self.cpu.v[x] as usize;
+                let val: u16 = self.cpu.v[x].into();
+                self.cpu.i += val;
                 self.next_instruction();
             }
 
             // Fx29 - LD F, Vx
             (0xF, _, 0x2, 0x9) => {
                 println!("OPCODE: Fx29");
-                self.cpu.i = self.cpu.v[x] as usize;
+                let val: u16 = self.cpu.v[x].into();
+                self.cpu.i = val;
                 self.next_instruction();
             }
 
             // Fx33 - LD B, Vx
             (0xF, _, 0x3, 0x3) => {
                 println!("OPCODE: Fx33");
-                self.memory.ram[self.cpu.i] = self.cpu.v[x] / 100;
-                self.memory.ram[self.cpu.i+1] = (self.cpu.v[x] % 100) / 10;
-                self.memory.ram[self.cpu.i+2] = (self.cpu.v[x] % 10) / 10;
+                self.memory.ram[self.cpu.i as usize] = self.cpu.v[x] / 100;
+                self.memory.ram[self.cpu.i as usize + 1] = (self.cpu.v[x] % 100) / 10;
+                self.memory.ram[self.cpu.i as usize + 2] = (self.cpu.v[x] % 10) / 10;
                 self.next_instruction();
             }
 
@@ -322,7 +332,7 @@ impl Chip8 {
             (0xF, _, 0x5, 0x5) => {
                 println!("OPCODE: Fx55");
                 for i in 0..=x {
-                    self.memory.ram[i+self.cpu.i] = self.cpu.v[i];
+                    self.memory.ram[i + self.cpu.i as usize] = self.cpu.v[i];
                 }
                 self.next_instruction();
             }
@@ -331,13 +341,21 @@ impl Chip8 {
             (0xF, _, 0x6, 0x5) => {
                 println!("OPCODE: Fx65");
                 for i in 0..=x {
-                    self.cpu.v[i] = self.memory.ram[i+self.cpu.i];
+                    self.cpu.v[i] = self.memory.ram[i + self.cpu.i as usize];
                 }
                 self.next_instruction();
             }
 
+            // Super Chip8 instruction 
+
+            // Fx85 - LD Vx, R 
+            (0xF, _, 0x8, 0x5) => {
+
+            },
+
             _ => {
-                println!("Invalid opcode: {}", opcode);
+                println!("Invalid opcode: {:#06X}", opcode);
+                std::process::exit(1);
             }
         }
     }
@@ -362,12 +380,12 @@ fn main() -> io::Result<()> {
 
     let rom_path = &args[1];
 
-    if let Err(err) = chip8.memory.load_rom(rom_path) {
-        eprintln!("Unable to load ROM into memory");
-    }
-
     if let Err(err) = chip8.memory.load_fontset() {
         eprintln!("Load fontset into memory");
+    }
+
+    if let Err(err) = chip8.memory.load_rom(rom_path) {
+        eprintln!("Unable to load ROM into memory");
     }
 
     loop {
