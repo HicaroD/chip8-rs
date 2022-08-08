@@ -426,6 +426,14 @@ impl Chip8 {
         if self.screen_changed {
             self.draw();
         } 
+
+        if self.cpu.sound_timer > 0 {
+            self.cpu.sound_timer -= 1;
+        }
+
+        if self.cpu.delay_timer > 0 {
+            self.cpu.delay_timer -= 1;
+        }
     }
 }
 
